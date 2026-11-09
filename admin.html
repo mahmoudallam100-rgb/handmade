@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>لوحة تحكم إفتكس</title>
+  <meta name="robots" content="noindex" />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/eftex.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+  <style>
+    #view { padding-bottom: 40px; }
+    .admin-top { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+    .admin-top .acts { display: flex; gap: 8px; flex-wrap: wrap; }
+    .layout { display: grid; grid-template-columns: 1fr 420px; gap: 20px; align-items: start; }
+    @media (max-width: 1000px) { .layout { grid-template-columns: 1fr; } }
+    table { width: 100%; border-collapse: collapse; font-size: 0.92rem; }
+    th, td { padding: 10px 8px; text-align: start; border-bottom: 1px solid var(--stroke); vertical-align: middle; }
+    th { color: var(--pearl-70); font-weight: 500; font-size: 0.82rem; }
+    tr:hover td { background: rgba(255,255,255,0.03); }
+    td .sw { display: inline-block; width: 14px; height: 14px; border-radius: 50%; margin-inline-end: 2px; border: 1px solid rgba(255,255,255,0.3); }
+    td .mini { font-size: 0.78rem; color: var(--pearl-45); }
+    .tbl-wrap { overflow: auto; padding: 8px 12px; }
+    .editor { position: sticky; top: calc(var(--head-h) + 10px); padding: 18px; display: flex; flex-direction: column; gap: 10px; max-height: calc(100dvh - var(--head-h) - 30px); overflow: auto; }
+    .editor .viewer { height: 220px; }
+    .editor .two { gap: 8px; }
+    .editor .field input, .editor .field select, .editor .field textarea { padding: 9px 12px; }
+    .editor .field label { font-size: 0.82rem; }
+    .colors { display: flex; gap: 8px; align-items: center; }
+    .colors input[type=color] { width: 44px; height: 36px; border-radius: 10px; border: 1px solid var(--stroke); background: transparent; padding: 2px; }
+    .tabs { display: flex; gap: 4px; padding: 4px; border-radius: 999px; width: max-content; margin-bottom: 16px; }
+    .tabs button { padding: 8px 16px; border-radius: 999px; color: var(--pearl-70); }
+    .tabs button.on { background: var(--gold); color: var(--night); font-weight: 700; }
+    .gate { max-width: 420px; margin: 20vh auto; padding: 30px; text-align: center; }
+    .gate input { text-align: center; font-size: 1.4rem; letter-spacing: 0.4em; }
+    .cfg-box { padding: 18px; display: flex; flex-direction: column; gap: 10px; }
+    pre { font-size: 0.78rem; max-height: 300px; overflow: auto; background: rgba(0,0,0,0.3); padding: 12px; border-radius: 12px; direction: ltr; text-align: left; }
+    .hint-row { font-size: 0.85rem; color: var(--pearl-70); }
+    .step-list { padding-inline-start: 18px; color: var(--pearl-70); font-size: 0.92rem; }
+  </style>
+</head>
+<body>
+  <header id="header">
+    <a class="logo" href="index.html"><span class="gem"></span>إفتكس<small>لوحة التحكم</small></a>
+    <div class="head-actions"><a class="btn btn-ghost btn-sm" href="index.html">افتح الموقع</a></div>
+  </header>
+  <main id="view"><div class="wrap" id="admin"></div></main>
+  <div id="toast" class="glass glass-strong"><span class="ok">✓</span><span id="toast-text"></span></div>
+
+<script type="module">
+import { CONFIG } from './js/config.js';
+import { HUBS, CATEGORIES as BASE_CATS, PRODUCTS as BASE_PRODUCTS, OCCASIONS } from './js/data.js';
+import { MODEL_TYPES } from './js/models.js';
+import { Viewer, hasWebGL } from './js/three-utils.js';
+import { toast, esc } from './js/state.js';
+import { generateCopy, aiMode } from './js/ai.js';
+
+const KEY = 'eftex_catalog_override';
+const root = document.getElementById('admin');
+let state = load();
+let sel = null, tab = 'products', viewer = null, filter = '';
+
+function load() {
+  try { const o = JSON.parse(localStorage.getItem(KEY) || 'null'); if (o?.products?.length) return { products: o.products, categories: o.categories?.length ? o.categories : structuredClone(BASE_CATS), dirty: false }; } catch {}
+  return { products: structuredClone(BASE_PRODUCTS), categories: structuredClone(BASE_CATS), dirty: false };
+}
+function saveBrowser() { localStorage.setItem(KEY, JSON.stringify({ products: state.products, categories: state.categories, at: Date.now() })); state.dirty = false; toast('اتحفظ في المتصفح — الموقع على نفس الجهاز هيعرض التعديلات'); render(); }
+function resetBrowser() { if (!confirm('تمسح كل التعديلات المحفوظة في المتصفح وترجع للملف الأصلي؟')) return; localStorage.removeItem(KEY); state = load(); sel = null; toast('رجعنا للملف الأصلي'); render(); }
+
+const MODEL_NAMES = { bracelet: 'إسورة', necklace: 'سلسلة', earrings: 'حلق', phonecharm: 'تعليقة موبايل', keychain: 'ميدالية', candle: 'شمعة', waxart: 'فن شمع', chocolate: 'بار شيكولاتة', chocobox: 'بوكس شيكولاتة', giftbox: 'بوكس هدية', sign: 'لوحة خشب', tray: 'صينية', mirror: 'مراية', flowers: 'ورد', topper: 'توبر', ringdish: 'ستاند خواتم', lantern: 'فانوس', hairpin: 'دبوس شعر', kit: 'كيت', veil: 'طرحة', tiara: 'تاج', cardset: 'كروت' };
+
+function fileText() {
+  const j = (o) => JSON.stringify(o, null, 2).replace(/"([a-zA-Z_]+)":/g, '$1:');
+  return `// ===============================================
+//  بيانات إفتكس — اتولّد من لوحة التحكم ${new Date().toLocaleString('ar-EG')}
+// ===============================================
+export const HUBS = ${j(HUBS)};
+
+export const CATEGORIES = ${j(state.categories)};
+
+export const PRODUCTS = ${j(state.products)};
+
+export const OCCASIONS = ${j(OCCASIONS)};
+`;
+}
+function download() {
+  const blob = new Blob([fileText()], { type: 'text/javascript' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'data.js'; a.click();
+  toast('اتحمّل data.js — ارفعه مكان js/data.js في الريبو');
+}
+
+function newProduct() {
+  const n = state.products.length + 1;
+  return { id: 'p' + Date.now().toString(36).slice(-5), cat: state.categories[0].id, name: '', price: 100, old: null, model: 'bracelet', colors: ['#e6c27a', '#f4a7c3'], glitter: 0.4, badge: '', desc: '', tags: [], builder: false, unit: '', options: null };
+}
+
+function render() {
+  if (sessionStorage.getItem('eftex_admin') !== '1') { root.innerHTML = `<form class="glass gate" id="gate"><h2>لوحة تحكم إفتكس</h2><p class="hint-row">اكتب الرقم السري (موجود في js/config.js)</p><div class="field"><input id="pin" inputmode="numeric" autocomplete="off" /></div><button class="btn btn-gold" style="margin-top:10px">دخول</button></form>`;
+    root.querySelector('#gate').onsubmit = (e) => { e.preventDefault(); if (root.querySelector('#pin').value === CONFIG.adminPin) { sessionStorage.setItem('eftex_admin', '1'); render(); } else toast('الرقم غلط'); };
+    return; }
+  const list = state.products.filter((p) => !filter || (p.name + p.id + p.cat).includes(filter));
+  root.innerHTML = `
+  <div class="admin-top"><div><h1>لوحة التحكم</h1><p class="hint-row">${state.products.length} منتج · ${state.categories.length} أقسام ${state.dirty ? '· <b style="color:var(--rose)">تعديلات غير محفوظة</b>' : ''}</p></div>
+    <div class="acts"><button class="btn btn-gold" id="save">حفظ في المتصفح</button><button class="btn btn-ghost" id="dl">تحميل data.js</button><button class="btn btn-ghost" id="reset">رجوع للأصل</button></div></div>
+  <div class="tabs glass"><button class="${tab === 'products' ? 'on' : ''}" data-tab="products">المنتجات</button><button class="${tab === 'cats' ? 'on' : ''}" data-tab="cats">الأقسام</button><button class="${tab === 'publish' ? 'on' : ''}" data-tab="publish">النشر والإعدادات</button></div>
+  ${tab === 'products' ? `<div class="layout"><div class="glass tbl-wrap">
+    <div class="filters"><div class="field" style="flex:1"><input id="filter" placeholder="بحث" value="${esc(filter)}" /></div><button class="btn btn-rose btn-sm" id="new">+ منتج جديد</button></div>
+    <table><thead><tr><th>المنتج</th><th>القسم</th><th>السعر</th><th>الموديل</th><th></th></tr></thead><tbody>
+    ${list.map((p) => `<tr data-id="${p.id}" style="cursor:pointer;${sel?.id === p.id ? 'background:var(--gold-soft)' : ''}"><td><b style="font-weight:500">${esc(p.name) || '<i>بدون اسم</i>'}</b><div class="mini">${p.id}${p.badge ? ' · ' + esc(p.badge) : ''}</div></td><td>${esc(state.categories.find((c) => c.id === p.cat)?.name || p.cat)}</td><td>${p.price}${p.unit ? '<div class="mini">' + esc(p.unit) + '</div>' : ''}</td><td>${MODEL_NAMES[p.model] || p.model} ${(p.colors || []).map((c) => `<span class="sw" style="background:${c}"></span>`).join('')}</td><td><button class="link" data-dup="${p.id}" type="button">نسخ</button> · <button class="link" style="color:var(--rose)" data-del="${p.id}" type="button">حذف</button></td></tr>`).join('')}
+    </tbody></table></div>
+    <div class="glass editor" id="editor">${sel ? editorHTML(sel) : '<div class="empty"><div class="big">🧰</div>اختار منتج من الجدول أو اعمل منتج جديد</div>'}</div></div>`
+  : tab === 'cats' ? `<div class="glass tbl-wrap"><table><thead><tr><th>الإيموجي</th><th>الاسم</th><th>الوصف</th><th>اللون</th><th></th></tr></thead><tbody>
+    ${state.categories.map((c, i) => `<tr><td><input data-c="${i}" data-k="emoji" value="${esc(c.emoji)}" style="width:60px"></td><td><input data-c="${i}" data-k="name" value="${esc(c.name)}"></td><td><input data-c="${i}" data-k="blurb" value="${esc(c.blurb)}" style="width:100%"></td><td><select data-c="${i}" data-k="tone"><option value="gold" ${c.tone === 'gold' ? 'selected' : ''}>ذهبي</option><option value="rose" ${c.tone === 'rose' ? 'selected' : ''}>وردي</option></select></td><td><button class="link" style="color:var(--rose)" data-cdel="${i}" type="button">حذف</button></td></tr>`).join('')}
+    </tbody></table><div style="padding:12px"><button class="btn btn-rose btn-sm" id="cnew">+ قسم جديد</button> <span class="hint-row">القسم الجديد بيظهر على الأرفف أول ما يبقى فيه منتج.</span></div></div>`
+  : `<div class="layout"><div class="glass cfg-box"><h3>إزاي تنشر التعديلات</h3><ol class="step-list"><li><b>حفظ في المتصفح</b>: بيخلي الموقع على جهازك ده يعرض التعديلات فوراً (للمعاينة).</li><li><b>تحميل data.js</b>: بيحمّل الملف النهائي.</li><li>ارفع الملف مكان <code>js/data.js</code> في ريبو GitHub (Add file → Upload) وفي دقيقة التعديل يبقى لايف لكل الناس.</li></ol>
+    <h3 style="margin-top:10px">الإعدادات الحالية (من js/config.js)</h3>
+    <div class="hint-row">واتساب: <b>${CONFIG.whatsapp}</b> · الشحن المجاني فوق <b>${CONFIG.shipping.freeAbove}</b> · الذكاء الاصطناعي: <b>${aiMode()}</b></div>
+    <div class="hint-row">لتغييرهم عدّل ملف <code>js/config.js</code> في الريبو. لتفعيل Claude أو Gemini في المساعد و"اصنع منتجك" حط المفتاح هناك.</div>
+    <h3 style="margin-top:10px">معاينة الملف</h3><pre>${esc(fileText().slice(0, 4000))}${fileText().length > 4000 ? '\n…' : ''}</pre></div>
+    <div class="glass cfg-box"><h3>استيراد</h3><p class="hint-row">لو عندك data.js أو JSON قديم، الصقه هنا عشان يتحمّل في اللوحة.</p><div class="field"><textarea id="imp" rows="8" placeholder='الصق محتوى data.js أو {"products":[...]}' style="direction:ltr"></textarea></div><button class="btn btn-ghost" id="impgo">استيراد</button></div></div>`}`;
+
+  root.querySelector('#save').onclick = saveBrowser; root.querySelector('#dl').onclick = download; root.querySelector('#reset').onclick = resetBrowser;
+  root.querySelectorAll('[data-tab]').forEach((b) => b.onclick = () => { tab = b.dataset.tab; render(); });
+  if (tab === 'products') {
+    root.querySelector('#filter').oninput = (e) => { filter = e.target.value; renderTableOnly(); };
+    root.querySelector('#new').onclick = () => { sel = newProduct(); state.products.unshift(sel); state.dirty = true; render(); };
+    root.querySelectorAll('tr[data-id]').forEach((tr) => tr.onclick = (e) => { if (e.target.closest('button')) return; sel = state.products.find((p) => p.id === tr.dataset.id); render(); });
+    root.querySelectorAll('[data-dup]').forEach((b) => b.onclick = () => { const p = structuredClone(state.products.find((x) => x.id === b.dataset.dup)); p.id = 'p' + Date.now().toString(36).slice(-5); p.name += ' (نسخة)'; state.products.unshift(p); sel = p; state.dirty = true; render(); });
+    root.querySelectorAll('[data-del]').forEach((b) => b.onclick = () => { if (!confirm('تحذف المنتج؟')) return; state.products = state.products.filter((x) => x.id !== b.dataset.del); if (sel?.id === b.dataset.del) sel = null; state.dirty = true; render(); });
+    if (sel) bindEditor();
+  }
+  if (tab === 'cats') {
+    root.querySelectorAll('[data-c]').forEach((el) => el.onchange = () => { state.categories[+el.dataset.c][el.dataset.k] = el.value; state.dirty = true; });
+    root.querySelectorAll('[data-cdel]').forEach((b) => b.onclick = () => { const c = state.categories[+b.dataset.cdel]; if (state.products.some((p) => p.cat === c.id)) return toast('فيه منتجات في القسم ده — انقلها الأول'); if (confirm('تحذف القسم؟')) { state.categories.splice(+b.dataset.cdel, 1); state.dirty = true; render(); } });
+    root.querySelector('#cnew').onclick = () => { state.categories.push({ id: 'c' + Date.now().toString(36).slice(-4), hub: 'handmade', name: 'قسم جديد', emoji: '✨', tone: 'gold', blurb: '' }); state.dirty = true; render(); };
+  }
+  if (tab === 'publish') {
+    root.querySelector('#impgo').onclick = () => {
+      const t = root.querySelector('#imp').value.trim(); if (!t) return;
+      try {
+        let obj;
+        if (t.startsWith('{')) obj = JSON.parse(t);
+        else { const m = t.match(/PRODUCTS\s*=\s*(\[[\s\S]*?\]);/); const c = t.match(/CATEGORIES\s*=\s*(\[[\s\S]*?\]);/); obj = { products: new Function('return ' + m[1])(), categories: c ? new Function('return ' + c[1])() : null }; }
+        if (!Array.isArray(obj.products)) throw 0;
+        state.products = obj.products; if (obj.categories?.length) state.categories = obj.categories; state.dirty = true; toast('اتستورد'); tab = 'products'; render();
+      } catch { toast('مقدرتش أقرأ الملف'); }
+    };
+  }
+}
+function renderTableOnly() { const f = root.querySelector('#filter'); const pos = f.selectionStart; render(); const nf = root.querySelector('#filter'); nf.focus(); nf.setSelectionRange(pos, pos); }
+
+function editorHTML(p) {
+  const cats = state.categories;
+  const opts = p.options ? Object.entries(p.options).map(([k, v]) => `${k}: ${v.join('، ')}`).join('\n') : '';
+  return `<div class="viewer" id="ed-viewer">${hasWebGL ? '' : ''}</div>
+  <div class="two"><div class="field"><label>الاسم</label><input data-f="name" value="${esc(p.name)}"></div><div class="field"><label>القسم</label><select data-f="cat">${cats.map((c) => `<option value="${c.id}" ${c.id === p.cat ? 'selected' : ''}>${esc(c.name)}</option>`).join('')}</select></div></div>
+  <div class="two"><div class="field"><label>السعر</label><input data-f="price" type="number" value="${p.price}"></div><div class="field"><label>سعر قبل الخصم (اختياري)</label><input data-f="old" type="number" value="${p.old || ''}"></div></div>
+  <div class="two"><div class="field"><label>الوحدة (مثلاً: للقطعة)</label><input data-f="unit" value="${esc(p.unit || '')}"></div><div class="field"><label>شارة</label><select data-f="badge"><option value="">بدون</option>${['الأكثر طلباً', 'جديد', 'عرض', 'طقم'].map((b) => `<option ${p.badge === b ? 'selected' : ''}>${b}</option>`).join('')}</select></div></div>
+  <div class="two"><div class="field"><label>الشكل ثلاثي الأبعاد</label><select data-f="model">${MODEL_TYPES.map((m) => `<option value="${m}" ${m === p.model ? 'selected' : ''}>${MODEL_NAMES[m] || m}</option>`).join('')}</select></div><div class="field"><label>الألوان</label><div class="colors"><input type="color" data-col="0" value="${p.colors?.[0] || '#e6c27a'}"><input type="color" data-col="1" value="${p.colors?.[1] || '#f4a7c3'}"></div></div></div>
+  <div class="field"><label>اللمعة (${p.glitter})</label><input type="range" data-f="glitter" min="0" max="1" step="0.1" value="${p.glitter ?? 0.3}"></div>
+  <div class="field"><label>الوصف <button class="link" id="gen" type="button" style="font-size:.8rem">✨ اكتبه بالذكاء الاصطناعي</button></label><textarea data-f="desc" rows="3">${esc(p.desc)}</textarea></div>
+  <div class="field"><label>الوسوم (مفصولة بفاصلة)</label><input data-f="tags" value="${esc((p.tags || []).join('، '))}"></div>
+  <div class="field"><label>الاختيارات (سطر لكل اختيار: الاسم: قيمة، قيمة)</label><textarea data-f="options" rows="2">${esc(opts)}</textarea></div>
+  <label class="hint-row"><input type="checkbox" data-f="builder" ${p.builder ? 'checked' : ''}> متاح في "اصنع منتجك"</label>
+  <div class="hint-row">المعرّف: ${p.id}</div>`;
+}
+function bindEditor() {
+  const ed = root.querySelector('#editor');
+  if (viewer) { viewer.destroy(); viewer = null; }
+  if (hasWebGL) { viewer = new Viewer(ed.querySelector('#ed-viewer')); viewer.set(sel.model, sel.colors, sel.glitter); }
+  const refresh = () => viewer && viewer.set(sel.model, sel.colors, sel.glitter);
+  ed.querySelectorAll('[data-f]').forEach((el) => el.addEventListener('input', () => {
+    const f = el.dataset.f; state.dirty = true;
+    if (f === 'price' || f === 'old') sel[f] = el.value ? +el.value : null;
+    else if (f === 'glitter') { sel.glitter = +el.value; el.previousElementSibling.textContent = `اللمعة (${sel.glitter})`; refresh(); }
+    else if (f === 'tags') sel.tags = el.value.split(/[,،]/).map((s) => s.trim()).filter(Boolean);
+    else if (f === 'builder') sel.builder = el.checked;
+    else if (f === 'options') { const o = {}; el.value.split('\n').forEach((l) => { const [k, v] = l.split(/[:：]/); if (k && v) o[k.trim()] = v.split(/[,،]/).map((s) => s.trim()).filter(Boolean); }); sel.options = Object.keys(o).length ? o : null; }
+    else if (f === 'model') { sel.model = el.value; refresh(); }
+    else sel[f] = el.value;
+    if (f === 'name' || f === 'cat' || f === 'price' || f === 'badge') { const tr = root.querySelector(`tr[data-id="${sel.id}"]`); if (tr) { tr.children[0].querySelector('b').textContent = sel.name || 'بدون اسم'; tr.children[2].firstChild.textContent = sel.price; } }
+  }));
+  ed.querySelectorAll('[data-col]').forEach((el) => el.addEventListener('input', () => { sel.colors = sel.colors || ['#e6c27a', '#f4a7c3']; sel.colors[+el.dataset.col] = el.value; state.dirty = true; refresh(); }));
+  ed.querySelector('#gen').onclick = async (e) => { e.preventDefault(); const b = e.target; b.textContent = '… بيكتب'; const r = await generateCopy({ name: sel.name, cat: sel.cat, tags: sel.tags || [], material: MODEL_NAMES[sel.model] }); sel.desc = r.desc; if (!sel.name && r.name) { sel.name = r.name; ed.querySelector('[data-f=name]').value = r.name; } ed.querySelector('[data-f=desc]').value = r.desc; state.dirty = true; b.textContent = '✨ اكتبه بالذكاء الاصطناعي'; };
+}
+window.addEventListener('beforeunload', (e) => { if (state.dirty) { e.preventDefault(); e.returnValue = ''; } });
+render();
+</script>
+</body>
+</html>

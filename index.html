@@ -1,0 +1,101 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>إفتكس — منصة الهاند ميد</title>
+  <meta name="description" content="إفتكس: إكسسوارات هاند ميد، شيكولاتة مخصصة، شموع، خشب محفور، وبوكسات هدايا.. معروضة على أرفف ثلاثية الأبعاد. اصنع منتجك بنفسك واطلب على واتساب." />
+  <meta name="theme-color" content="#120b1c" />
+  <meta property="og:title" content="إفتكس — منصة الهاند ميد" />
+  <meta property="og:description" content="كل حاجة هنا اتعملت بإيد.. وبقلب. متجر ثلاثي الأبعاد للإكسسوارات والهدايا والشيكولاتة المخصصة." />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="css/eftex.css" />
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "./vendor/three/three.module.js",
+        "three/addons/": "./vendor/three/addons/"
+      }
+    }
+  </script>
+</head>
+<body>
+  <!-- مقدمة الدخول -->
+  <div id="intro" aria-hidden="true">
+    <canvas></canvas>
+    <div class="tag">كل حاجة هنا اتعملت بإيد.. وبقلب</div>
+    <button class="skip" type="button">تخطّي</button>
+  </div>
+
+  <!-- الهيدر -->
+  <header id="header">
+    <a class="logo" href="#/" aria-label="إفتكس — الرئيسية"><span class="gem"></span>إفتكس<small>EFTEX</small></a>
+    <button class="hub-switch glass" id="hub-btn" type="button" title="الهبات"><span class="lbl">الهب الحالي:</span> <b id="hub-name">هاند ميد</b>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg>
+    </button>
+    <div class="head-actions">
+      <button class="icon-btn" id="search-btn" type="button" aria-label="بحث"><svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
+      <button class="icon-btn" id="cart-btn" type="button" aria-label="السلة"><svg viewBox="0 0 24 24"><path d="M6 7h12l1 13H5z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg><span class="badge-count" id="cart-count" data-n="0"></span></button>
+    </div>
+  </header>
+
+  <!-- المتجر ثلاثي الأبعاد (بيتفعّل في صفحة المتجر فقط) -->
+  <div id="store" hidden></div>
+
+  <!-- محتوى الصفحة -->
+  <main id="view"></main>
+
+  <!-- ستارة الانتقال -->
+  <div id="curtain" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+
+  <!-- الدوك -->
+  <div id="dock">
+    <nav class="glass" aria-label="التنقل الرئيسي">
+      <a href="#/" data-route="home"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10"/></svg>الرئيسية</a>
+      <a href="#/store" data-route="store"><svg viewBox="0 0 24 24"><path d="M3 9h18M3 15h18"/><path d="M5 4v16M19 4v16"/><path d="M8 9V6h8v3M8 15v-3h8v3"/></svg>الأرفف</a>
+      <a href="#/build" data-route="build" class="build"><svg viewBox="0 0 24 24"><path d="m12 3 2.5 5 5.5.8-4 3.9.9 5.5-4.9-2.6-4.9 2.6.9-5.5-4-3.9L9.5 8z"/></svg>اصنع منتجك</a>
+      <a href="#/bride" data-route="bride"><svg viewBox="0 0 24 24"><path d="M12 21s-7-4.5-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.5-7 10-7 10z"/></svg>العروسة</a>
+      <a href="#/cart" data-route="cart"><svg viewBox="0 0 24 24"><path d="M6 7h12l1 13H5z"/><path d="M9 7a3 3 0 0 1 6 0"/></svg>السلة</a>
+    </nav>
+  </div>
+
+  <!-- المساعد الذكي -->
+  <button id="ai-fab" type="button" aria-label="المساعد الذكي"><svg viewBox="0 0 24 24"><path d="M12 3v3M12 18v3M3 12h3M18 12h3"/><circle cx="12" cy="12" r="4.5"/><path d="m6.5 6.5 1.5 1.5M16 16l1.5 1.5M17.5 6.5 16 8M8 16l-1.5 1.5"/></svg></button>
+  <section id="ai-panel" class="glass glass-strong" aria-label="المساعد الذكي">
+    <div class="ai-head">
+      <div class="av">✦</div>
+      <div><b>مساعد إفتكس</b><small id="ai-mode">بيقترح عليك هدايا حسب المناسبة والميزانية</small></div>
+      <button class="icon-btn x" id="ai-close" type="button" aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    </div>
+    <div class="ai-body" id="ai-body"></div>
+    <div class="ai-chips" id="ai-chips"></div>
+    <form class="ai-input" id="ai-form">
+      <input id="ai-input" placeholder="مثلاً: هدية لصاحبتي عيد ميلادها بـ 300 جنيه" autocomplete="off" />
+      <button type="submit" aria-label="إرسال"><svg viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+    </form>
+  </section>
+
+  <!-- درج السلة -->
+  <div id="backdrop"></div>
+  <aside id="cart-drawer" class="glass glass-strong" aria-label="السلة">
+    <div class="drawer-head"><h3>سلتك</h3><button class="icon-btn" id="cart-close" type="button" aria-label="إغلاق"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+    <div class="drawer-body" id="cart-lines"></div>
+    <div class="drawer-foot">
+      <div class="total"><span>الإجمالي</span><b id="cart-total">0</b></div>
+      <a class="btn btn-gold btn-lg" href="#/checkout" id="cart-go">إتمام الطلب</a>
+    </div>
+  </aside>
+
+  <!-- بحث -->
+  <div id="search">
+    <div class="box glass glass-strong">
+      <input id="search-input" placeholder="دوّر على منتج.. إسورة، شمعة، بوكس" autocomplete="off" />
+      <div class="res" id="search-res"></div>
+    </div>
+  </div>
+
+  <div id="toast" class="glass glass-strong"><span class="ok">✓</span><span id="toast-text"></span></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>
